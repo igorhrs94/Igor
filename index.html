@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
+  <title>Nosso Bolso — Controle de gastos do casal</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💑</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">💑</span>
+      <div>
+        <h1>Nosso Bolso</h1>
+        <p class="brand-sub" id="couple-names">Controle de gastos do casal</p>
+      </div>
+    </div>
+    <div class="month-picker" role="group" aria-label="Selecionar mês">
+      <button class="icon-btn" id="prev-month" aria-label="Mês anterior">‹</button>
+      <span id="month-label" class="month-label"></span>
+      <button class="icon-btn" id="next-month" aria-label="Próximo mês">›</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="dashboard" role="tab">📊 Painel</button>
+    <button class="tab" data-view="transactions" role="tab">📋 Lançamentos</button>
+    <button class="tab" data-view="budget" role="tab">🎯 Orçamento</button>
+    <button class="tab" data-view="settings" role="tab">⚙️ Configurações</button>
+  </nav>
+
+  <main>
+    <!-- PAINEL -->
+    <section id="view-dashboard" class="view active">
+      <div class="cards">
+        <div class="card stat income"><span class="stat-label">Receitas</span><strong id="stat-income">—</strong></div>
+        <div class="card stat expense"><span class="stat-label">Despesas</span><strong id="stat-expense">—</strong></div>
+        <div class="card stat balance"><span class="stat-label">Saldo do mês</span><strong id="stat-balance">—</strong></div>
+        <div class="card stat budget"><span class="stat-label">Orçamento usado</span><strong id="stat-budget">—</strong>
+          <div class="progress"><div id="stat-budget-bar"></div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Custos fixos × Gastos variáveis</h2>
+          <div id="nature-split" class="nature-split"></div>
+        </div>
+        <div class="card">
+          <h2>Acerto de contas</h2>
+          <div id="settlement"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Despesas por categoria</h2>
+          <div class="donut-wrap">
+            <div id="donut"></div>
+            <ul id="donut-legend" class="legend"></ul>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Últimos 6 meses</h2>
+          <div id="bars"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Últimos lançamentos</h2>
+          <button class="link-btn" data-goto="transactions">Ver todos →</button>
+        </div>
+        <ul id="recent-list" class="tx-list"></ul>
+      </div>
+    </section>
+
+    <!-- LANÇAMENTOS -->
+    <section id="view-transactions" class="view">
+      <div class="card filters">
+        <input type="search" id="f-search" placeholder="🔎 Buscar descrição…" aria-label="Buscar">
+        <select id="f-type" aria-label="Tipo">
+          <option value="">Todos os tipos</option>
+          <option value="despesa">Despesas</option>
+          <option value="receita">Receitas</option>
+          <option value="acerto">Acertos</option>
+        </select>
+        <select id="f-nature" aria-label="Natureza">
+          <option value="">Fixos e variáveis</option>
+          <option value="fixo">Custos fixos</option>
+          <option value="variavel">Gastos variáveis</option>
+        </select>
+        <select id="f-category" aria-label="Categoria"></select>
+        <select id="f-person" aria-label="Pessoa"></select>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 id="tx-count">Lançamentos</h2>
+          <div class="actions">
+            <button class="btn ghost small" id="copy-fixed">↻ Copiar custos fixos do mês anterior</button>
+          </div>
+        </div>
+        <ul id="tx-list" class="tx-list"></ul>
+      </div>
+    </section>
+
+    <!-- ORÇAMENTO -->
+    <section id="view-budget" class="view">
+      <div class="card">
+        <div class="card-head">
+          <h2>Orçamento mensal por categoria</h2>
+          <span class="muted" id="budget-total"></span>
+        </div>
+        <p class="muted">Defina um limite mensal para cada categoria. As barras mudam de cor quando o gasto se aproxima (80%) ou ultrapassa o limite.</p>
+        <ul id="budget-list" class="budget-list"></ul>
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section id="view-settings" class="view">
+      <div class="grid-2">
+        <form class="card" id="couple-form">
+          <h2>O casal</h2>
+          <label>Nome da pessoa 1<input id="s-p1" required maxlength="30"></label>
+          <label>Nome da pessoa 2<input id="s-p2" required maxlength="30"></label>
+          <fieldset>
+            <legend>Como dividir as despesas compartilhadas?</legend>
+            <label class="radio"><input type="radio" name="splitMode" value="igual"> Meio a meio (50% / 50%)</label>
+            <label class="radio"><input type="radio" name="splitMode" value="proporcional"> Proporcional à renda</label>
+            <label class="radio"><input type="radio" name="splitMode" value="personalizado"> Percentual personalizado</label>
+          </fieldset>
+          <div id="split-proportional" class="split-extra">
+            <label><span id="lbl-inc1">Renda mensal 1</span><input type="number" id="s-inc1" min="0" step="0.01"></label>
+            <label><span id="lbl-inc2">Renda mensal 2</span><input type="number" id="s-inc2" min="0" step="0.01"></label>
+          </div>
+          <div id="split-custom" class="split-extra">
+            <label><span id="lbl-pct1">Percentual da pessoa 1</span><input type="range" id="s-pct1" min="0" max="100" step="1"></label>
+            <output id="pct-out"></output>
+          </div>
+          <p class="muted" id="split-preview"></p>
+          <button class="btn primary" type="submit">Salvar</button>
+        </form>
+
+        <div class="card">
+          <h2>Seus dados</h2>
+          <p class="muted">Os dados ficam salvos apenas neste navegador. Faça backups periódicos e use a importação para levar os dados a outro aparelho.</p>
+          <div class="stack">
+            <button class="btn" id="export-json">⬇️ Exportar backup (JSON)</button>
+            <label class="btn file-btn">⬆️ Importar backup (JSON)<input type="file" id="import-json" accept="application/json,.json" hidden></label>
+            <button class="btn" id="export-csv">📄 Exportar lançamentos (CSV / Excel)</button>
+            <button class="btn" id="load-demo">✨ Carregar dados de exemplo</button>
+            <button class="btn danger" id="reset-all">🗑️ Apagar todos os dados</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Categorias</h2>
+          <button class="btn primary small" id="add-category">+ Nova categoria</button>
+        </div>
+        <p class="muted"><b>Custo fixo</b>: valor previsível e recorrente (aluguel, condomínio, internet). <b>Gasto variável</b>: muda de mês a mês (mercado, lazer, restaurantes).</p>
+        <ul id="category-list" class="category-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <button class="fab" id="fab" aria-label="Novo lançamento">＋<span>Novo lançamento</span></button>
+
+  <!-- MODAL LANÇAMENTO -->
+  <dialog id="tx-dialog">
+    <form id="tx-form" method="dialog">
+      <h2 id="tx-title">Novo lançamento</h2>
+      <div class="segmented" role="radiogroup" aria-label="Tipo">
+        <label><input type="radio" name="type" value="despesa" checked><span>Despesa</span></label>
+        <label><input type="radio" name="type" value="receita"><span>Receita</span></label>
+        <label><input type="radio" name="type" value="acerto"><span>Acerto entre o casal</span></label>
+      </div>
+      <label>Descrição<input name="description" required maxlength="80" placeholder="Ex.: Supermercado"></label>
+      <div class="row">
+        <label>Valor (R$)<input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required></label>
+        <label>Data<input name="date" type="date" required></label>
+      </div>
+      <label class="for-cat">Categoria<select name="categoryId"></select></label>
+      <div class="row">
+        <label><span class="lbl-paid">Quem pagou?</span><select name="paidBy"></select></label>
+        <label class="for-split">De quem é o gasto?<select name="split"></select></label>
+      </div>
+      <label class="for-acerto-to">Para quem?<select name="to"></select></label>
+      <label>Observação (opcional)<input name="note" maxlength="120"></label>
+      <p class="muted small" id="tx-hint"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn danger ghost" id="tx-delete">Excluir</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL CATEGORIA -->
+  <dialog id="cat-dialog">
+    <form id="cat-form" method="dialog">
+      <h2 id="cat-title">Nova categoria</h2>
+      <div class="row">
+        <label class="narrow">Ícone<input name="icon" maxlength="4" required></label>
+        <label>Nome<input name="name" maxlength="30" required></label>
+        <label class="narrow">Cor<input name="color" type="color"></label>
+      </div>
+      <label>Tipo<select name="nature">
+        <option value="fixo">Custo fixo (despesa)</option>
+        <option value="variavel">Gasto variável (despesa)</option>
+        <option value="receita">Receita</option>
+      </select></label>
+      <label class="for-budget">Orçamento mensal (R$, opcional)<input name="budget" type="number" min="0" step="0.01"></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn danger ghost" id="cat-delete">Excluir</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
