@@ -176,8 +176,12 @@
             <label><span id="lbl-inc2">Renda mensal 2</span><input type="number" id="s-inc2" min="0" step="0.01"></label>
           </div>
           <div id="split-custom" class="split-extra">
-            <label><span id="lbl-pct1">Percentual da pessoa 1</span><input type="range" id="s-pct1" min="0" max="100" step="1"></label>
-            <output id="pct-out"></output>
+            <div class="row pct-row">
+              <label><span id="lbl-pct1">% da pessoa 1</span><span class="pct-input"><input type="number" id="s-pct1" min="0" max="100" step="0.1" inputmode="decimal"><i>%</i></span></label>
+              <label><span id="lbl-pct2">% da pessoa 2</span><span class="pct-input"><input type="number" id="s-pct2" min="0" max="100" step="0.1" inputmode="decimal"><i>%</i></span></label>
+            </div>
+            <input type="range" id="s-pct-range" min="0" max="100" step="1" aria-label="Ajustar a divisão">
+            <div class="pct-bar" aria-hidden="true"><span id="pct-bar-1"></span><span id="pct-bar-2"></span></div>
           </div>
           <p class="muted" id="split-preview"></p>
           <button class="btn primary" type="submit">Salvar</button>

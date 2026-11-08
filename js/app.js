@@ -262,7 +262,8 @@
     $('#settlement').innerHTML = `
       <div class="people">${person('p1')}${person('p2')}</div>
       <div class="settle-box">${box}</div>
-      <p class="muted small">Divisão das despesas compartilhadas: ${esc(state.settings.p1)} ${(r1 * 100).toFixed(0)}% · ${esc(state.settings.p2)} ${((1 - r1) * 100).toFixed(0)}%. Saldo acumulado até o fim do mês selecionado.</p>`;
+      <p class="muted small split-note"><span>Despesas compartilhadas: <b>${esc(state.settings.p1)} ${fmtPct(r1 * 100)}</b> · <b>${esc(state.settings.p2)} ${fmtPct((1 - r1) * 100)}</b>. Saldo acumulado até o fim do mês.</span>
+        <button class="link-btn" data-edit-split>Alterar divisão</button></p>`;
   }
 
   function renderDonut(txs) {
@@ -410,7 +411,7 @@
     if (!form.contains(document.activeElement)) {
       $('#s-p1').value = s.p1; $('#s-p2').value = s.p2;
       $('#s-inc1').value = s.inc1 || ''; $('#s-inc2').value = s.inc2 || '';
-      $('#s-pct1').value = s.pct1;
+      setPct(s.pct1);
       $$('input[name="splitMode"]').forEach((r) => (r.checked = r.value === s.splitMode));
     }
     updateSplitUI();
@@ -441,6 +442,16 @@
       : 'Aguardando seu par: peça para criar uma conta e entrar com o código acima.';
   }
 
+  const clampPct = (v) => Math.round(Math.min(100, Math.max(0, parseFloat(String(v).replace(',', '.')) || 0)) * 10) / 10;
+  const fmtPct = (v) => String(Math.round(v * 10) / 10).replace('.', ',') + '%';
+  /** Mantém os campos de percentual sempre somando 100%. */
+  function setPct(p1, from) {
+    const p = clampPct(p1);
+    if (from !== 's-pct1') $('#s-pct1').value = p;
+    if (from !== 's-pct2') $('#s-pct2').value = Math.round((100 - p) * 10) / 10;
+    $('#s-pct-range').value = p;
+  }
+
   function updateSplitUI() {
     const mode = ($('input[name="splitMode"]:checked') || {}).value || 'igual';
     const n1 = $('#s-p1').value || 'Pessoa 1', n2 = $('#s-p2').value || 'Pessoa 2';
@@ -448,9 +459,11 @@
     $('#split-custom').classList.toggle('show', mode === 'personalizado');
     $('#lbl-inc1').textContent = `Renda mensal de ${n1}`;
     $('#lbl-inc2').textContent = `Renda mensal de ${n2}`;
-    $('#lbl-pct1').textContent = `Percentual de ${n1}`;
-    const p = +$('#s-pct1').value;
-    $('#pct-out').textContent = `${n1}: ${p}% · ${n2}: ${100 - p}%`;
+    $('#lbl-pct1').textContent = `% de ${n1}`;
+    $('#lbl-pct2').textContent = `% de ${n2}`;
+    const p = clampPct($('#s-pct1').value);
+    $('#pct-bar-1').style.width = p + '%';
+    $('#pct-bar-2').style.width = (100 - p) + '%';
     let r = 0.5;
     if (mode === 'proporcional') {
       const a = +$('#s-inc1').value || 0, b = +$('#s-inc2').value || 0;
@@ -678,6 +691,13 @@
     if (txEl) return openTx(state.transactions.find((t) => t.id === txEl.dataset.tx));
     const catEl = e.target.closest('[data-cat]');
     if (catEl) return openCat(cat(catEl.dataset.cat));
+    if (e.target.closest('[data-edit-split]')) {
+      goto('settings');
+      const custom = $('input[name="splitMode"][value="personalizado"]');
+      if (state.settings.splitMode === 'igual') { custom.checked = true; updateSplitUI(); }
+      $('#couple-form fieldset').scrollIntoView({ block: 'center' });
+      return;
+    }
     const go = e.target.closest('[data-goto]');
     if (go) return goto(go.dataset.goto);
     const settle = e.target.closest('[data-settle]');
@@ -702,7 +722,14 @@
     render(); toast('Orçamento atualizado.');
   });
 
-  $('#couple-form').addEventListener('input', updateSplitUI);
+  $('#couple-form').addEventListener('input', (e) => {
+    const id = e.target.id;
+    if (id === 's-pct1') setPct(e.target.value, id);
+    else if (id === 's-pct2') setPct(100 - clampPct(e.target.value), id);
+    else if (id === 's-pct-range') setPct(e.target.value, id);
+    updateSplitUI();
+  });
+  $('#couple-form').addEventListener('change', (e) => { if (/^s-pct[12]$/.test(e.target.id)) setPct($('#s-pct1').value); });
   $('#couple-form').addEventListener('submit', (e) => {
     e.preventDefault();
     Object.assign(state.settings, {
@@ -711,7 +738,7 @@
       splitMode: ($('input[name="splitMode"]:checked') || {}).value || 'igual',
       inc1: +$('#s-inc1').value || 0,
       inc2: +$('#s-inc2').value || 0,
-      pct1: +$('#s-pct1').value,
+      pct1: clampPct($('#s-pct1').value),
     });
     const settings = { ...state.settings };
     persist((c, h) => c.saveSettings(h, settings));
