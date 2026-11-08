@@ -287,6 +287,41 @@ dialog h2 { font-size: 1.15rem; margin-bottom: 16px; }
 .toast-action { margin-left: 10px; border: 0; background: rgba(255,255,255,.18); color: #fff; font: inherit; font-weight: 700; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
 .date-warn { margin: -4px 0 12px; padding: 8px 10px; border-radius: 8px; font-size: .82rem; background: var(--surface-2); color: var(--warn); font-weight: 600; }
 .date-warn[hidden] { display: none; }
+[hidden] { display: none !important; }
+.imp-opts { flex-wrap: wrap; }
+.imp-opts > label { min-width: 200px; }
+.drop {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; cursor: pointer;
+  border: 2px dashed var(--border); border-radius: 14px; padding: 26px 16px; margin-bottom: 12px; background: var(--surface-2);
+}
+.drop:hover, .drop.over { border-color: var(--primary); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.drop-icon { font-size: 1.8rem; }
+.imp-paste { margin-bottom: 12px; }
+.imp-paste summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--primary); margin-bottom: 8px; }
+.imp-paste textarea { width: 100%; font: inherit; font-size: .85rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; resize: vertical; }
+.imp-pass { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+.imp-pass label { flex: 1; min-width: 220px; margin: 0; }
+.imp-status { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--primary-soft); font-size: .9rem; margin-bottom: 8px; }
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--primary); animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.imp-msg { font-size: .9rem; margin: 0 0 8px; }
+.imp-msg:empty { display: none; }
+.imp-msg.warn { color: var(--warn); }
+.imp-msg.err { color: var(--danger); }
+.table-wrap { overflow-x: auto; margin: 0 -4px; }
+.imp-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.imp-table th { text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.imp-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.imp-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.imp-table select { padding: 6px 8px; font-size: .84rem; min-width: 118px; }
+.imp-table td:nth-child(6) select { min-width: 170px; }
+.imp-desc { min-width: 160px; max-width: 280px; overflow-wrap: anywhere; }
+.imp-table tr.off td:not(:first-child) { opacity: .5; }
+.pill { display: inline-block; font-size: .7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-top: 2px; }
+.pill.warn { background: var(--surface-2); color: var(--warn); }
+.pill.info { background: var(--surface-2); color: var(--muted); }
 
 /* ---------- Avisos e confirmação ---------- */
 .notice { display: flex; gap: 10px; align-items: flex-start; background: var(--primary-soft); color: var(--text); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: .92rem; }
@@ -317,6 +352,7 @@ ol.steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; font-s
   <nav class="tabs" role="tablist">
     <button class="tab active" data-view="dashboard" role="tab">📊 Painel</button>
     <button class="tab" data-view="transactions" role="tab">📋 Lançamentos</button>
+    <button class="tab" data-view="import" role="tab">📥 Importar extrato</button>
     <button class="tab" data-view="budget" role="tab">🎯 Orçamento</button>
     <button class="tab" data-view="settings" role="tab">⚙️ Configurações</button>
   </nav>
@@ -406,6 +442,62 @@ ol.steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; font-s
         </div>
         <p class="muted">Defina um limite mensal para cada categoria. As barras mudam de cor quando o gasto se aproxima (80%) ou ultrapassa o limite.</p>
         <ul id="budget-list" class="budget-list"></ul>
+      </div>
+    </section>
+
+    <!-- IMPORTAR EXTRATO -->
+    <section id="view-import" class="view">
+      <div class="card">
+        <h2>Importar extrato do mês</h2>
+        <p class="muted">Envie o extrato da conta ou a fatura do cartão de um de vocês. O Claude separa os lançamentos e sugere a categoria de cada um. Nada é salvo antes de você revisar.</p>
+        <div class="row imp-opts">
+          <label>De quem é o extrato?<select id="imp-person"></select></label>
+          <label>Tipo de documento<select id="imp-kind">
+            <option value="conta">Extrato da conta corrente</option>
+            <option value="cartao">Fatura do cartão de crédito</option>
+          </select></label>
+        </div>
+        <label class="drop" id="imp-drop" for="imp-file">
+          <input type="file" id="imp-file" multiple accept=".ofx,.qfx,.csv,.txt,.pdf,image/*">
+          <span class="drop-icon" aria-hidden="true">📄</span>
+          <b>Escolha ou arraste o arquivo do extrato</b>
+          <span class="muted small" id="imp-formats">OFX, CSV, PDF ou foto/print do extrato</span>
+        </label>
+        <details class="imp-paste">
+          <summary>Ou cole o texto do extrato</summary>
+          <textarea id="imp-text" rows="6" placeholder="Copie as linhas do extrato no app do banco e cole aqui"></textarea>
+          <button class="btn small" id="imp-text-go" type="button">Ler texto colado</button>
+        </details>
+        <div class="imp-pass" id="imp-pass" hidden>
+          <label>Este PDF tem senha (muitos bancos usam os números do CPF)<input type="password" id="imp-pass-input" autocomplete="off"></label>
+          <button class="btn small primary" id="imp-pass-go" type="button">Abrir PDF</button>
+        </div>
+        <div class="imp-status" id="imp-status" hidden>
+          <span class="spin" aria-hidden="true"></span><span id="imp-status-text"></span>
+          <button class="link-btn" id="imp-stop" type="button">Parar</button>
+        </div>
+        <p class="imp-msg" id="imp-msg" role="status"></p>
+        <p class="muted small">O conteúdo do extrato é enviado ao Claude pela conta de quem está usando a página, apenas para a classificação. O arquivo não fica guardado.</p>
+      </div>
+
+      <div class="card" id="imp-review" hidden>
+        <div class="card-head">
+          <h2 id="imp-review-title">Revise os lançamentos</h2>
+          <div class="actions">
+            <button class="btn ghost small" id="imp-discard" type="button">Descartar</button>
+            <button class="btn primary small" id="imp-save" type="button">Adicionar</button>
+          </div>
+        </div>
+        <p class="muted small" id="imp-summary"></p>
+        <div class="table-wrap">
+          <table class="imp-table">
+            <thead><tr>
+              <th><input type="checkbox" id="imp-all" aria-label="Selecionar todos"></th>
+              <th>Data</th><th>Descrição</th><th class="num">Valor</th><th>Tipo</th><th>Categoria</th><th>De quem</th>
+            </tr></thead>
+            <tbody id="imp-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -740,6 +832,7 @@ ol.steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; font-s
     renderTransactions();
     renderBudget();
     renderSettings();
+    if (typeof renderImportOptions === 'function') renderImportOptions();
   }
 
   function renderDashboard() {
@@ -1504,6 +1597,505 @@ ol.steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; font-s
 
   window.addEventListener('offline', () => cloud && setSync('offline'));
   window.addEventListener('online', () => cloud && setSync('ok'));
+
+  // ---------------------------------------------------------------- Importar extrato
+  const imp = { rows: [], person: 'p1', kind: 'conta', ctl: null, pdf: null, sample: undefined, imgLimits: null };
+  const MONTHS_PT = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+  const plain = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  /** "1.234,56", "-R$ 12,00", "12,00 D", "(5,00)", "12.50" -> número com sinal (NaN se não for valor). */
+  function parseMoney(raw) {
+    let s = String(raw ?? '').trim();
+    if (!s || !/\d/.test(s)) return NaN;
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1).trim(); }
+    if (/\s*D$/i.test(s)) { neg = true; s = s.replace(/\s*D$/i, ''); }
+    else if (/\s*C$/i.test(s)) s = s.replace(/\s*C$/i, '');
+    if (/-\s*$/.test(s)) { neg = true; s = s.replace(/-\s*$/, ''); }
+    s = s.replace(/R\$/i, '').replace(/\s/g, '');
+    if (s.startsWith('-')) { neg = true; s = s.slice(1); } else if (s.startsWith('+')) s = s.slice(1);
+    if (!/^\d[\d.,]*$/.test(s)) return NaN;
+    const dec = s.match(/[.,](\d{1,2})$/);
+    const num = dec ? parseFloat(s.slice(0, -dec[0].length).replace(/[.,]/g, '') + '.' + dec[1]) : parseFloat(s.replace(/[.,]/g, ''));
+    return isNaN(num) ? NaN : neg ? -num : num;
+  }
+  const looksMoney = (c) => /\d[.,]\d{2}\s*[DC-]?\)?\s*$/i.test(String(c ?? '').trim()) && !isNaN(parseMoney(c));
+
+  function yearFor(month) {
+    let y = cursor.y;
+    if (month - 1 > cursor.m + 1) y -= 1; // ex.: vendo janeiro e o extrato é de dezembro
+    return y;
+  }
+  /** Converte "05/11/2026", "05/11/26", "05/11", "2026-11-05", "05 NOV", "5 de novembro de 2026" em AAAA-MM-DD. */
+  function dateFrom(raw) {
+    const s = plain(raw).trim().replace(/\s+/g, ' ');
+    let y, m, d, x;
+    if ((x = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) [y, m, d] = [+x[1], +x[2], +x[3]];
+    else if ((x = s.match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/))) {
+      [d, m] = [+x[1], +x[2]];
+      y = x[3] ? (x[3].length === 2 ? 2000 + +x[3] : +x[3]) : yearFor(m);
+    } else if ((x = s.match(/^(\d{1,2}) (?:de )?([a-z]{3})[a-z]*\.?(?: (?:de )?(\d{4}))?$/)) && MONTHS_PT[x[2]]) {
+      [d, m] = [+x[1], MONTHS_PT[x[2]]];
+      y = x[3] ? +x[3] : yearFor(m);
+    } else return null;
+    if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 1990 && y < 2100)) return null;
+    return `${y}-${pad(m)}-${pad(d)}`;
+  }
+
+  function parseOFX(text) {
+    const out = [];
+    for (const block of text.split(/<STMTTRN>/i).slice(1)) {
+      const get = (tag) => { const x = block.match(new RegExp('<' + tag + '>([^<\\r\\n]*)', 'i')); return x ? x[1].trim() : ''; };
+      const dt = get('DTPOSTED');
+      let amt = get('TRNAMT');
+      amt = parseFloat(amt.includes(',') && amt.includes('.') ? amt.replace(/,/g, '') : amt.replace(',', '.'));
+      const desc = (get('MEMO') || get('NAME')).replace(/\s+/g, ' ');
+      if (dt.length >= 8 && !isNaN(amt) && amt !== 0 && desc) {
+        out.push({ date: `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}`, description: desc, signed: amt });
+      }
+    }
+    return out;
+  }
+
+  function csvRows(text) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    const head = lines.slice(0, 30).join('\n');
+    const delim = [';', '\t', ','].map((d) => [d, head.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+    return lines.map((line) => {
+      const cells = []; let cur = '', q = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+        else if (ch === '"') q = true;
+        else if (ch === delim) { cells.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+      cells.push(cur.trim());
+      return cells;
+    });
+  }
+
+  function parseCSV(text) {
+    const rows = csvRows(text), out = [];
+    let header = null, cols = null;
+    for (const row of rows) {
+      const di = row.findIndex((c) => dateFrom(c));
+      if (di < 0) { if (row.length > 1) header = row; continue; }
+      if (!cols) {
+        cols = { date: di, val: -1, deb: -1, cred: -1, desc: -1, saldo: -1 };
+        if (header && header.length >= row.length - 1) {
+          const h = header.map(plain);
+          cols.val = h.findIndex((x) => /valor|amount|quantia|montante/.test(x) && !/saldo|dolar|us\$/.test(x));
+          cols.deb = h.findIndex((x) => /debito|saida/.test(x));
+          cols.cred = h.findIndex((x) => /credito|entrada/.test(x));
+          cols.desc = h.findIndex((x) => /descri|historico|lancamento|estabelecimento|memo|detalhe|title|titulo/.test(x));
+          cols.saldo = h.findIndex((x) => /saldo/.test(x));
+        }
+      }
+      const date = dateFrom(row[cols.date]);
+      let amount = NaN;
+      if (cols.val >= 0) amount = parseMoney(row[cols.val]);
+      else if (cols.deb >= 0 || cols.cred >= 0) {
+        const d = parseMoney(row[cols.deb]), c = parseMoney(row[cols.cred]);
+        amount = !isNaN(d) && d !== 0 ? -Math.abs(d) : !isNaN(c) ? Math.abs(c) : NaN;
+      } else {
+        for (let i = 0; i < row.length; i++) {
+          if (i === cols.date || i === cols.saldo || dateFrom(row[i])) continue;
+          if (looksMoney(row[i])) { amount = parseMoney(row[i]); break; }
+        }
+      }
+      const desc = cols.desc >= 0 ? row[cols.desc]
+        : row.filter((c, i) => i !== cols.date && !dateFrom(c) && isNaN(parseMoney(c))).sort((a, b) => b.length - a.length)[0];
+      if (!date || isNaN(amount) || amount === 0 || !desc || /^saldo/i.test(plain(desc))) continue;
+      out.push({ date, description: desc.replace(/\s+/g, ' ').trim(), signed: amount });
+    }
+    return out;
+  }
+
+  const MONEY_RE = /(?:-\s?)?(?:R\$\s?)?-?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s?[DC](?![a-z]))?/gi;
+  function parseLines(text) {
+    const out = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.replace(/\s+/g, ' ').trim();
+      const x = line.match(/^(\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?|\d{1,2} (?:de )?[A-Za-zÀ-ú]{3}[a-zà-ú]*\.?(?: (?:de )?\d{4})?) (.+)$/);
+      if (!x) continue;
+      const date = dateFrom(x[1]);
+      if (!date) continue;
+      const monies = [...x[2].matchAll(MONEY_RE)];
+      if (!monies.length) continue;
+      const desc = x[2].slice(0, monies[0].index).replace(/R\$\s*$/, '').trim();
+      if (!desc || /^saldo/.test(plain(desc))) continue;
+      out.push({ date, description: desc, signed: parseMoney(monies[0][0]) });
+    }
+    return out.filter((r) => !isNaN(r.signed) && r.signed !== 0);
+  }
+
+  // ----- regras simples (usadas quando o Claude não está disponível)
+  const RULES = [
+    [/ifood|rappi|restaur|lanchon|padaria|panificadora|cafe|coffee|burger|pizz|\bbar\b|bistro|sushi|mc ?donald|outback|starbucks|churrasc|food/, 'restaurantes'],
+    [/mercado|supermerc|carrefour|pao de acucar|assai|atacad|hortifruti|sacolao|\bextra\b|\bdia\b|zaffari|sams club|mercadinho|emporio|acougue/, 'mercado'],
+    [/uber|\b99\b|cabify|posto|shell|ipiranga|petrobras|combust|estacion|sem parar|conectcar|veloe|pedagio|metro|onibus|bilhete unico/, 'transporte'],
+    [/farmac|drogaria|droga ?raia|drogasil|pacheco|panvel|pague menos/, 'farmacia'],
+    [/netflix|spotify|prime video|amazon prime|disney|hbo|globoplay|youtube|deezer|apple\.com|icloud|google one|paramount|crunchyroll/, 'assinaturas'],
+    [/\bclaro\b|\bvivo\b|\btim\b|\boi\b|net virtua|internet|telefon/, 'internet'],
+    [/enel|\blight\b|cemig|copel|cpfl|coelba|celpe|energia|sabesp|cedae|sanepar|copasa|comgas|naturgy/, 'contas'],
+    [/aluguel|condomin|imobili|financiamento|iptu/, 'moradia'],
+    [/unimed|amil|sulamerica|bradesco saude|hapvida|notredame|plano de saude|odonto/, 'saude'],
+    [/academia|smart ?fit|bluefit|bodytech|crossfit|gympass|wellhub/, 'saude'],
+    [/petz|cobasi|pet ?shop|veterin|racao/, 'pets'],
+    [/renner|riachuelo|c&a|zara|shein|hering|nike|adidas|centauro|netshoes|marisa/, 'vestuario'],
+    [/cinema|cinemark|ingresso|sympla|eventim|teatro|steam|playstation|xbox|nintendo/, 'lazer'],
+    [/hotel|airbnb|booking|decolar|latam|\bgol\b|azul linhas|passagem|smiles/, 'viagens'],
+    [/escola|faculdade|curso|udemy|alura|mensalidade/, 'educacao'],
+    [/seguro/, 'seguros'],
+  ];
+  const IGNORE_RE = /pagamento (de )?fatura|pagto fatura|pag fatura|pgto fatura|pagamento recebido|fatura cart|aplicacao|aplic\b|resgate|invest|\bcdb\b|tesouro|rendimento poup|^saldo|estorno|mesma titularidade/;
+  const INCOME_RE = /salario|folha|proventos|remuneracao|pro.?labore|vencimentos/;
+  const catOk = (id, tipo) => { const c = cat(id); return !!c && (tipo === 'receita' ? c.nature === 'receita' : c.nature !== 'receita'); };
+  const firstCat = (tipo) => (state.categories.find((c) => (tipo === 'receita' ? c.nature === 'receita' : c.id === 'outros')) ||
+    state.categories.find((c) => (tipo === 'receita' ? c.nature === 'receita' : c.nature !== 'receita')) || {}).id;
+
+  function ruleClassify(r) {
+    const d = plain(r.description);
+    const other = imp.person === 'p1' ? 'p2' : 'p1';
+    const otherName = plain(name(other)).split(' ')[0];
+    if (IGNORE_RE.test(d)) return { tipo: 'ignorar', motivo: 'Pagamento de fatura, investimento ou estorno' };
+    if (otherName.length > 2 && d.includes(otherName) && /pix|transf|ted|doc/.test(d)) return { tipo: 'ignorar', motivo: 'Transferência entre vocês' };
+    if (r.dir === 'entrada') {
+      if (imp.kind === 'cartao') return { tipo: 'ignorar', motivo: 'Crédito na fatura' };
+      return { tipo: 'receita', categoryId: INCOME_RE.test(d) && cat('salario') ? 'salario' : firstCat('receita') };
+    }
+    const hit = RULES.find(([re, id]) => re.test(d) && cat(id));
+    const categoryId = hit ? hit[1] : firstCat('despesa');
+    const personal = ['vestuario', 'presentes'].includes(categoryId) || /academia|smart ?fit|bluefit|bodytech|crossfit|salao|barbearia|manicure/.test(d);
+    return { tipo: 'despesa', categoryId, dono: personal ? imp.person : 'casal' };
+  }
+
+  // ----- Claude
+  function classifyRules() {
+    const cats = state.categories.map((c) => `${c.id}: ${c.name} (${c.nature === 'receita' ? 'receita' : c.nature === 'fixo' ? 'despesa fixa' : 'despesa variável'})`).join('\n');
+    const who = name(imp.person), other = name(imp.person === 'p1' ? 'p2' : 'p1');
+    return `Você organiza as finanças de um casal brasileiro: p1 = ${state.settings.p1}, p2 = ${state.settings.p2}.
+O documento é ${imp.kind === 'cartao' ? 'a fatura do cartão de crédito' : 'o extrato da conta corrente'} de ${who} (${imp.person}).
+
+Categorias disponíveis (id: nome):
+${cats}
+
+Para cada lançamento decida:
+- "tipo": "despesa" (dinheiro gasto), "receita" (salário, renda extra, reembolso recebido) ou "ignorar" (não é gasto nem renda: pagamento da fatura do cartão, transferência entre contas do próprio titular, transferência entre ${who} e ${other}, aplicação ou resgate de investimento, estorno, saldo, limite).
+- "categoria": o id da categoria mais adequada (de despesa para despesas, de receita para receitas; null quando "ignorar"). Use o nome do estabelecimento para deduzir (ex.: IFOOD = restaurantes, DROGASIL = farmácia, POSTO = transporte).
+- "dono": "casal" para gastos da casa ou feitos juntos (mercado, contas, moradia, restaurantes, pets...), "p1" ou "p2" quando for claramente pessoal de alguém (roupas, academia, cuidados pessoais, presentes). Na dúvida, "casal".`;
+  }
+
+  async function getSample() {
+    if (imp.sample !== undefined) return imp.sample;
+    const use = window.claude && window.claude.use ? (n) => window.claude.use(n) : async () => null;
+    imp.sample = await use('sample').catch(() => null);
+    imp.imgLimits = imp.sample ? (await imp.sample.limits().catch(() => null))?.images || null : null;
+    return imp.sample;
+  }
+
+  const SAMPLE_ERRORS = {
+    not_granted: 'Você não autorizou o uso do Claude nesta página.',
+    rate_limited: 'O Claude está ocupado ou o limite de uso foi atingido. Tente de novo em alguns minutos.',
+    prompt_too_large: 'O extrato é grande demais para enviar de uma vez.',
+    refused: 'O Claude não conseguiu processar este conteúdo.',
+    invalid_json: 'A resposta do Claude veio num formato inesperado.',
+  };
+  const sampleMsg = (e) => SAMPLE_ERRORS[e && e.code] || 'Não foi possível falar com o Claude agora.';
+
+  function applyAI(r, a) {
+    if (!a || typeof a !== 'object') return false;
+    const tipo = ['despesa', 'receita', 'ignorar'].includes(a.tipo) ? a.tipo : null;
+    if (!tipo) return false;
+    r.tipo = tipo;
+    r.categoryId = tipo === 'ignorar' ? null : catOk(a.categoria, tipo) ? a.categoria : (catOk(r.categoryId, tipo) ? r.categoryId : firstCat(tipo));
+    r.dono = ['casal', 'p1', 'p2'].includes(a.dono) ? a.dono : 'casal';
+    r.motivo = tipo === 'ignorar' ? (a.motivo || r.motivo || '') : '';
+    r.by = 'claude';
+    return true;
+  }
+
+  /** Classifica linhas já lidas do arquivo (OFX, CSV, PDF/texto sem Claude). */
+  async function classifyWithClaude(rows, sample) {
+    const size = 60;
+    for (let i = 0; i < rows.length; i += size) {
+      const part = rows.slice(i, i + size);
+      status(`Classificando com o Claude… ${Math.min(i + size, rows.length)} de ${rows.length}`);
+      const list = part.map((r, k) => `${k} | ${r.date} | ${r.description} | ${r.amount.toFixed(2)} | ${r.dir}`).join('\n');
+      const prompt = `${classifyRules()}
+
+Lançamentos (índice | data | descrição | valor | entrada/saída):
+${list}
+
+Responda só com um array JSON, um objeto por lançamento, na mesma ordem, por exemplo:
+[{"i":0,"tipo":"despesa","categoria":"restaurantes","dono":"casal"},{"i":1,"tipo":"ignorar","categoria":null,"dono":"casal","motivo":"Pagamento da fatura"}]`;
+      const ans = await sample.json(prompt, { modelTier: 'quick', signal: imp.ctl.signal });
+      if (!Array.isArray(ans)) throw { code: 'invalid_json' };
+      ans.forEach((a, k) => { const idx = Number.isInteger(a?.i) ? a.i : k; if (part[idx]) applyAI(part[idx], a); });
+    }
+  }
+
+  /** Lê e classifica a partir de texto livre (PDF, texto colado) ou imagens. */
+  async function extractWithClaude(sample, { text, images }) {
+    const fmt = `Responda só com um array JSON, um objeto por lançamento, por exemplo:
+[{"data":"2026-11-05","descricao":"IFOOD *PIZZARIA","valor":45.9,"direcao":"saida","tipo":"despesa","categoria":"restaurantes","dono":"casal"}]
+"valor" é sempre positivo; "direcao" é "saida" (débito, compra) ou "entrada" (crédito). Quando a data não trouxer o ano, use o ano mais provável sabendo que o mês aberto no app é ${monthName(cursor.y, cursor.m)}. Ignore cabeçalhos, saldos, totais, limites e avisos; não invente lançamentos.`;
+    const found = [];
+    const run = async (body, opts, label) => {
+      status(label);
+      const ans = await sample.json(`${classifyRules()}\n\n${body}\n\n${fmt}`, { modelTier: 'default', signal: imp.ctl.signal, ...opts });
+      if (!Array.isArray(ans)) throw { code: 'invalid_json' };
+      for (const a of ans) {
+        const date = dateFrom(a?.data);
+        const amount = Math.abs(typeof a?.valor === 'number' ? a.valor : parseMoney(a?.valor)) || 0;
+        if (!date || !(amount > 0) || !a.descricao) continue;
+        const r = { date, description: String(a.descricao).replace(/\s+/g, ' ').trim(), amount: round2(amount), dir: a.direcao === 'entrada' ? 'entrada' : 'saida' };
+        Object.assign(r, ruleClassify(r));
+        applyAI(r, a);
+        found.push(r);
+      }
+    };
+    if (images && images.length) {
+      const max = (imp.imgLimits && imp.imgLimits.maxCount) || 5;
+      for (let i = 0; i < images.length; i += max) {
+        const chunk = images.slice(i, i + max);
+        await run(`Nas imagens está ${imp.kind === 'cartao' ? 'a fatura do cartão' : 'o extrato'} de ${name(imp.person)}. Leia todos os lançamentos visíveis.`,
+          { images: chunk }, `O Claude está lendo ${images.length > 1 ? 'as imagens' : 'a imagem'}… ${i + chunk.length} de ${images.length}`);
+      }
+    }
+    if (text) {
+      const chunks = []; let cur = '';
+      for (const line of text.split('\n')) { if (cur.length + line.length > 12000) { chunks.push(cur); cur = ''; } cur += line + '\n'; }
+      if (cur.trim()) chunks.push(cur);
+      for (let i = 0; i < chunks.length; i++) {
+        await run(`Texto do documento (parte ${i + 1} de ${chunks.length}):\n<<<\n${chunks[i]}\n>>>`, {},
+          `O Claude está lendo o extrato e classificando os gastos… ${chunks.length > 1 ? `parte ${i + 1} de ${chunks.length}` : 'isso pode levar até um minuto'}`);
+      }
+    }
+    return found;
+  }
+
+  // ----- PDF (pdf.js carregado só quando necessário)
+  let pdfjsPromise = null;
+  const loadScript = (src) => new Promise((res, rej) => {
+    const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('script')); document.head.appendChild(el);
+  });
+  function loadPdfjs() {
+    if (!pdfjsPromise) {
+      const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+      pdfjsPromise = loadScript(base + 'pdf.min.js')
+        .then(() => loadScript(base + 'pdf.worker.min.js')) // processa na própria página
+        .then(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js'; return window.pdfjsLib; })
+        .catch((e) => { pdfjsPromise = null; throw e; });
+    }
+    return pdfjsPromise;
+  }
+  async function pdfText(buf, password) {
+    const pdfjs = await loadPdfjs();
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buf.slice(0)), password, isEvalSupported: false }).promise;
+    const out = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const content = await (await doc.getPage(n)).getTextContent();
+      const lines = new Map();
+      for (const it of content.items) {
+        if (!it.str || !it.str.trim()) continue;
+        const y = Math.round(it.transform[5] / 3);
+        if (!lines.has(y)) lines.set(y, []);
+        lines.get(y).push(it);
+      }
+      [...lines.entries()].sort((a, b) => b[0] - a[0])
+        .forEach(([, items]) => out.push(items.sort((a, b) => a.transform[4] - b.transform[4]).map((i) => i.str.trim()).join(' ')));
+    }
+    return out.join('\n');
+  }
+
+  async function readText(file) {
+    const buf = await file.arrayBuffer();
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+  }
+
+  // ----- fluxo
+  function status(text) { $('#imp-status').hidden = !text; $('#imp-status-text').textContent = text || ''; }
+  function impMsg(text, kind = '') { const el = $('#imp-msg'); el.textContent = text || ''; el.className = 'imp-msg ' + kind; }
+  const toRow = (r) => ({ date: r.date, description: r.description, amount: round2(Math.abs(r.signed)),
+    dir: (imp.kind === 'cartao' && !r.ofx ? r.signed > 0 : r.signed < 0) ? 'saida' : 'entrada' });
+
+  async function processInput({ files = [], text = '' }) {
+    imp.person = $('#imp-person').value;
+    imp.kind = $('#imp-kind').value;
+    imp.ctl = new AbortController();
+    impMsg('');
+    $('#imp-pass').hidden = true;
+    let parsed = [], rawText = '', images = [];
+    try {
+      for (const f of files) {
+        const n = f.name.toLowerCase();
+        status(`Lendo ${f.name}…`);
+        if (/\.(ofx|qfx)$/.test(n)) parsed.push(...parseOFX(await readText(f)).map((r) => ({ ...r, ofx: true })));
+        else if (/\.csv$/.test(n)) {
+          const t = await readText(f), rows = parseCSV(t);
+          if (rows.length) parsed.push(...rows); else rawText += t + '\n';
+        } else if (/\.pdf$/.test(n) || f.type === 'application/pdf') {
+          const buf = await f.arrayBuffer();
+          try { rawText += (await pdfText(buf, imp.pdf && imp.pdf.password)) + '\n'; }
+          catch (e) {
+            if (e && e.name === 'PasswordException') {
+              imp.pdf = { file: f, password: null };
+              status(''); $('#imp-pass').hidden = false; $('#imp-pass-input').value = ''; $('#imp-pass-input').focus();
+              impMsg(e.code === 2 ? 'Senha incorreta. Tente de novo.' : '', e.code === 2 ? 'err' : '');
+              return;
+            }
+            throw new Error(`Não foi possível abrir o PDF ${f.name}.`);
+          }
+        } else if (f.type.startsWith('image/')) images.push(f);
+        else rawText += (await readText(f)) + '\n';
+      }
+      if (text.trim()) rawText += text;
+
+      const sample = (rawText.trim() || images.length || parsed.length) ? await getSample() : null;
+      let rows = parsed.map(toRow).map((r) => ({ ...r, ...ruleClassify(r), by: 'regras' }));
+      let note = '';
+
+      if (images.length && !(sample && imp.imgLimits)) {
+        note = 'Para ler fotos ou prints, a página precisa do Claude com envio de imagens, que não está disponível agora. Envie o arquivo OFX, CSV ou PDF do banco.';
+        images = [];
+      }
+      if (sample && (rawText.trim() || images.length)) {
+        try { rows.push(...await extractWithClaude(sample, { text: rawText.trim(), images })); rawText = ''; }
+        catch (e) { if (e && e.code === 'cancelled') throw e; note = sampleMsg(e) + ' Os lançamentos foram lidos por regras automáticas; confira com atenção.'; }
+      }
+      if (rawText.trim()) rows.push(...parseLines(rawText).map(toRow).map((r) => ({ ...r, ...ruleClassify(r), by: 'regras' })));
+
+      const fromFile = rows.filter((r) => r.by === 'regras');
+      if (sample && fromFile.length) {
+        try { await classifyWithClaude(fromFile, sample); }
+        catch (e) { if (e && e.code === 'cancelled') throw e; note = sampleMsg(e) + ' As categorias foram sugeridas por regras automáticas; revise antes de salvar.'; }
+      } else if (!sample && rows.length) {
+        note = 'O Claude não está disponível nesta visualização, então as categorias foram sugeridas por regras automáticas. Revise antes de salvar.';
+      }
+      status('');
+      if (!rows.length) { impMsg(note || 'Não encontrei lançamentos neste arquivo. Tente o arquivo OFX ou CSV exportado pelo app do banco.', 'err'); return; }
+      showReview(rows);
+      impMsg(note, note ? 'warn' : '');
+    } catch (e) {
+      status('');
+      if (e && e.code === 'cancelled') { impMsg('Leitura interrompida.'); return; }
+      console.error(e);
+      impMsg(e && e.message && !e.code ? e.message : 'Não foi possível ler o extrato.', 'err');
+    } finally {
+      $('#imp-file').value = '';
+    }
+  }
+
+  function showReview(rows) {
+    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    for (const r of rows) {
+      r.dup = state.transactions.some((t) => t.paidBy === imp.person && t.date === r.date && Math.abs(t.amount - r.amount) < 0.005);
+      r.include = r.tipo !== 'ignorar' && !r.dup;
+      if (r.tipo !== 'despesa') r.dono = r.dono || 'casal';
+    }
+    imp.rows = rows;
+    $('#imp-review').hidden = false;
+    renderReview();
+    $('#imp-review').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function catOptions(tipo, selected) {
+    if (tipo === 'ignorar') return '<option value="">—</option>';
+    const groups = tipo === 'receita' ? [['receita', 'Receitas']] : [['fixo', 'Custos fixos'], ['variavel', 'Gastos variáveis']];
+    return groups.map(([n, label]) => `<optgroup label="${label}">` + state.categories.filter((c) => c.nature === n)
+      .map((c) => `<option value="${esc(c.id)}"${c.id === selected ? ' selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('') + '</optgroup>').join('');
+  }
+
+  function renderReview() {
+    const rows = imp.rows;
+    const opt = (v, l, sel) => `<option value="${v}"${v === sel ? ' selected' : ''}>${esc(l)}</option>`;
+    $('#imp-body').innerHTML = rows.map((r, i) => {
+      const [, m, d] = r.date.split('-');
+      return `<tr class="${r.include ? '' : 'off'}">
+        <td><input type="checkbox" data-i="${i}" data-f="include"${r.include ? ' checked' : ''} aria-label="Incluir ${esc(r.description)}"></td>
+        <td class="num" style="font-weight:400">${d}/${m}</td>
+        <td><div class="imp-desc">${esc(r.description)}</div>${r.dup ? '<span class="pill warn">Parece já lançado</span> ' : ''}${r.tipo === 'ignorar' && r.motivo ? `<span class="pill info">${esc(r.motivo)}</span>` : ''}</td>
+        <td class="num ${r.dir === 'saida' ? 'neg' : 'pos'}">${r.dir === 'saida' ? '−' : '+'} ${money(r.amount)}</td>
+        <td><select data-i="${i}" data-f="tipo" aria-label="Tipo">${opt('despesa', 'Despesa', r.tipo)}${opt('receita', 'Receita', r.tipo)}${opt('ignorar', 'Ignorar', r.tipo)}</select></td>
+        <td><select data-i="${i}" data-f="categoryId" aria-label="Categoria"${r.tipo === 'ignorar' ? ' disabled' : ''}>${catOptions(r.tipo, r.categoryId)}</select></td>
+        <td>${r.tipo === 'despesa' ? `<select data-i="${i}" data-f="dono" aria-label="De quem é">${opt('casal', 'Do casal', r.dono)}${opt('p1', 'Só ' + state.settings.p1, r.dono)}${opt('p2', 'Só ' + state.settings.p2, r.dono)}</select>` : '<span class="muted">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    const sel = rows.filter((r) => r.include && r.tipo !== 'ignorar');
+    const desp = sel.filter((r) => r.tipo === 'despesa'), rec = sel.filter((r) => r.tipo === 'receita');
+    const sum = (l) => l.reduce((a, r) => a + r.amount, 0);
+    const ign = rows.filter((r) => r.tipo === 'ignorar').length, dup = rows.filter((r) => r.dup).length;
+    $('#imp-review-title').textContent = `Revise os lançamentos de ${name(imp.person)}`;
+    $('#imp-summary').textContent = `${rows.length} encontrados · ${desp.length} despesas (${money(sum(desp))}) e ${rec.length} receitas (${money(sum(rec))}) selecionadas` +
+      (ign ? ` · ${ign} ignorados` : '') + (dup ? ` · ${dup} parecem já lançados e ficaram desmarcados` : '') + '.';
+    $('#imp-save').textContent = sel.length ? `Adicionar ${sel.length} lançamento${sel.length > 1 ? 's' : ''}` : 'Adicionar';
+    $('#imp-save').disabled = !sel.length;
+    $('#imp-all').checked = rows.length > 0 && rows.every((r) => r.include || r.tipo === 'ignorar');
+  }
+
+  $('#imp-body').addEventListener('change', (e) => {
+    const i = e.target.dataset.i, f = e.target.dataset.f;
+    if (i === undefined) return;
+    const r = imp.rows[+i];
+    if (f === 'include') r.include = e.target.checked;
+    else if (f === 'tipo') {
+      r.tipo = e.target.value;
+      if (r.tipo === 'ignorar') { r.include = false; r.categoryId = null; }
+      else { r.include = true; if (!catOk(r.categoryId, r.tipo)) r.categoryId = r.tipo === 'receita' ? (r.dir === 'entrada' && cat('salario') && INCOME_RE.test(plain(r.description)) ? 'salario' : firstCat('receita')) : (ruleClassify({ ...r, dir: 'saida' }).categoryId); }
+    } else r[f] = e.target.value;
+    renderReview();
+  });
+  $('#imp-all').addEventListener('change', (e) => { imp.rows.forEach((r) => { if (r.tipo !== 'ignorar') r.include = e.target.checked; }); renderReview(); });
+  $('#imp-discard').addEventListener('click', () => { imp.rows = []; $('#imp-review').hidden = true; impMsg(''); });
+
+  $('#imp-save').addEventListener('click', () => {
+    const sel = imp.rows.filter((r) => r.include && r.tipo !== 'ignorar');
+    if (!sel.length) return;
+    const now = Date.now();
+    const pretty = (s) => (/[a-z]/.test(s) ? s : s.toLowerCase().replace(/(^|[\s*/-])(\S)/g, (m, a, b) => a + b.toUpperCase()));
+    const txs = sel.map((r, k) => ({
+      id: uid(), type: r.tipo, description: pretty(r.description).slice(0, 80), amount: r.amount, date: r.date,
+      categoryId: r.categoryId || firstCat(r.tipo), paidBy: imp.person,
+      split: r.tipo === 'despesa' ? (r.dono === 'casal' ? 'shared' : r.dono) : null, to: null,
+      note: `Importado do extrato${imp.kind === 'cartao' ? ' (cartão)' : ''}`, createdAt: now + k,
+    }));
+    state.transactions.push(...txs);
+    persist((c, h) => c.upsertTxs(h, txs));
+    imp.rows = []; $('#imp-review').hidden = true; impMsg('');
+    const months = {}; txs.forEach((t) => (months[t.date.slice(0, 7)] = (months[t.date.slice(0, 7)] || 0) + 1));
+    const top = Object.entries(months).sort((a, b) => b[1] - a[1])[0][0];
+    const [y, m] = top.split('-').map(Number);
+    render();
+    toast(`${txs.length} lançamento${txs.length > 1 ? 's' : ''} adicionado${txs.length > 1 ? 's' : ''}.`, { label: 'Ver', run: () => { cursor = { y, m: m - 1 }; render(); goto('transactions'); } });
+  });
+
+  $('#imp-file').addEventListener('change', (e) => { const files = [...e.target.files]; if (files.length) processInput({ files }); });
+  const drop = $('#imp-drop');
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove('over')));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); const files = [...e.dataTransfer.files]; if (files.length) processInput({ files }); });
+  $('#imp-text-go').addEventListener('click', () => { const t = $('#imp-text').value; if (t.trim()) processInput({ text: t }); });
+  $('#imp-stop').addEventListener('click', () => imp.ctl && imp.ctl.abort());
+  $('#imp-pass-go').addEventListener('click', () => {
+    if (!imp.pdf) return;
+    imp.pdf.password = $('#imp-pass-input').value;
+    const f = imp.pdf.file;
+    processInput({ files: [f] }).finally(() => { if ($('#imp-pass').hidden) imp.pdf = null; });
+  });
+  $('#imp-pass-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#imp-pass-go').click(); } });
+
+  function renderImportOptions() {
+    const sel = $('#imp-person'), cur = sel.value || 'p1';
+    fillSelect(sel, [['p1', state.settings.p1], ['p2', state.settings.p2]], cur);
+    if (imp.rows.length && !$('#imp-review').hidden) renderReview();
+  }
+  getSample().then(() => {
+    if (imp.imgLimits) $('#imp-formats').textContent = 'OFX, CSV, PDF ou foto/print do extrato';
+    else $('#imp-formats').textContent = 'OFX, CSV ou PDF exportado pelo banco';
+  });
 
   // ---------------------------------------------------------------- Init
   render();
