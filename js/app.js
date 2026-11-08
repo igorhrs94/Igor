@@ -114,12 +114,21 @@
   const cat = (id) => state.categories.find((c) => c.id === id);
   const natureOf = (t) => (t.type === 'despesa' ? (cat(t.categoryId)?.nature || 'variavel') : t.type);
 
-  function toast(msg) {
+  const ask = (msg) => Promise.resolve(confirm(msg));
+
+  function toast(msg, action) {
     const el = $('#toast');
     el.textContent = msg;
+    if (action) {
+      const b = document.createElement('button');
+      b.className = 'toast-action';
+      b.textContent = action.label;
+      b.addEventListener('click', () => { el.classList.remove('show'); action.run(); });
+      el.append(' ', b);
+    }
     el.classList.add('show');
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove('show'), 2600);
+    toast._t = setTimeout(() => el.classList.remove('show'), action ? 6000 : 2600);
   }
 
   /** Participação da pessoa 1 nas despesas compartilhadas (0–1). */
@@ -530,6 +539,14 @@
       hint = 'Use para registrar quando um transfere dinheiro ao outro para zerar a diferença. Não conta como despesa.';
     }
     $('#tx-hint').textContent = hint;
+
+    const d = txForm.date.value, warn = $('#date-warn');
+    const other = !!d && d.slice(0, 7) !== ymKey(cursor.y, cursor.m);
+    warn.hidden = !other;
+    if (other) {
+      const [y, m] = d.split('-').map(Number);
+      warn.textContent = `Atenção: esta data é de ${monthName(y, m - 1)}. O lançamento vai contar nesse mês, não em ${monthName(cursor.y, cursor.m)}.`;
+    }
   }
 
   txForm.addEventListener('change', (e) => {
@@ -545,7 +562,7 @@
   });
   txForm.addEventListener('input', updateTxHint);
 
-  txForm.addEventListener('submit', (e) => {
+  txForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const type = txForm.type.value;
     const amount = round2(parseFloat(txForm.amount.value));
@@ -563,6 +580,13 @@
       note: txForm.note.value.trim(),
     };
     if (type === 'acerto' && tx.to === tx.paidBy) { toast('Escolha pessoas diferentes para o acerto.'); return; }
+    const twin = state.transactions.find((t) => t.id !== tx.id && t.type === tx.type && t.amount === tx.amount &&
+      t.date === tx.date && t.paidBy === tx.paidBy && t.description.trim().toLowerCase() === tx.description.toLowerCase());
+    if (twin) {
+      const [ty, tm, td] = twin.date.split('-');
+      const ok = await ask(`Já existe “${twin.description}” de ${money(twin.amount)} em ${td}/${tm}/${ty}. Salvar outro igual mesmo assim?`, 'Salvar mesmo assim');
+      if (!ok) return;
+    }
     if (editingTxId) {
       const i = state.transactions.findIndex((t) => t.id === editingTxId);
       tx.createdAt = state.transactions[i]?.createdAt;
@@ -574,11 +598,12 @@
     const savedTx = tx;
     persist((c, h) => c.upsertTxs(h, [savedTx]));
     txDialog.close();
-    // leva a visualização para o mês do lançamento
+    // continua no mês exibido; se a data for de outro mês, avisa e oferece ir até lá
     const [y, m] = tx.date.split('-').map(Number);
-    cursor = { y, m: m - 1 };
     render();
-    toast(editingTxId ? 'Lançamento atualizado.' : 'Lançamento adicionado!');
+    const done = editingTxId ? 'Lançamento atualizado' : 'Lançamento adicionado';
+    if (y === cursor.y && m - 1 === cursor.m) toast(done + '!');
+    else toast(`${done} em ${monthName(y, m - 1)}.`, { label: 'Ver mês', run: () => { cursor = { y, m: m - 1 }; render(); } });
   });
 
   $('#tx-delete').addEventListener('click', () => {
