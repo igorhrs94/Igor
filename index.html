@@ -9,6 +9,45 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <!-- TELA DE LOGIN (modo nuvem) -->
+  <section id="auth-screen" class="gate hidden" aria-labelledby="auth-heading">
+    <div class="gate-card">
+      <div class="gate-logo" aria-hidden="true">💑</div>
+      <h1 id="auth-heading">Nosso Bolso</h1>
+      <p class="muted">Controle de gastos do casal, sincronizado entre vocês dois.</p>
+      <div class="segmented" role="tablist" id="auth-tabs">
+        <label><input type="radio" name="authMode" value="signin" checked><span>Entrar</span></label>
+        <label><input type="radio" name="authMode" value="signup"><span>Criar conta</span></label>
+      </div>
+      <form id="auth-form">
+        <label class="for-email">E-mail<input name="email" type="email" autocomplete="email" required></label>
+        <label class="for-password">Senha<input name="password" type="password" minlength="6" autocomplete="current-password" required></label>
+        <p class="auth-msg" id="auth-msg" role="alert"></p>
+        <button class="btn primary block" type="submit" id="auth-submit">Entrar</button>
+      </form>
+      <button class="link-btn" id="forgot-btn" type="button">Esqueci minha senha</button>
+    </div>
+  </section>
+
+  <!-- TELA DO ESPAÇO DO CASAL -->
+  <section id="household-screen" class="gate hidden" aria-labelledby="hh-heading">
+    <div class="gate-card">
+      <div class="gate-logo" aria-hidden="true">🏡</div>
+      <h1 id="hh-heading">O espaço de vocês</h1>
+      <p class="muted">Um de vocês cria o espaço e compartilha o código de convite. O outro entra com esse código.</p>
+      <button class="btn primary block" id="hh-create">Criar nosso espaço</button>
+      <div class="divider"><span>ou</span></div>
+      <form id="hh-join-form">
+        <label>Código de convite do seu par<input name="code" maxlength="6" autocomplete="off" placeholder="7KQ2ZA" required class="code-input"></label>
+        <button class="btn block" type="submit">Entrar no espaço</button>
+      </form>
+      <p class="auth-msg" id="hh-msg" role="alert"></p>
+      <p class="muted small">Conectado como <b id="hh-email"></b> · <button class="link-btn" id="hh-signout">Sair</button></p>
+    </div>
+  </section>
+
+  <div id="loading" class="gate hidden"><div class="spinner" aria-label="Carregando"></div></div>
+
   <header class="topbar">
     <div class="brand">
       <span class="brand-icon" aria-hidden="true">💑</span>
@@ -17,6 +56,7 @@
         <p class="brand-sub" id="couple-names">Controle de gastos do casal</p>
       </div>
     </div>
+    <span id="sync-status" class="sync hidden" title="Sincronização"></span>
     <div class="month-picker" role="group" aria-label="Selecionar mês">
       <button class="icon-btn" id="prev-month" aria-label="Mês anterior">‹</button>
       <span id="month-label" class="month-label"></span>
@@ -143,9 +183,29 @@
           <button class="btn primary" type="submit">Salvar</button>
         </form>
 
+        <div>
+        <div class="card" id="account-card">
+          <h2>Conta e sincronização</h2>
+          <div id="account-local">
+            <p class="muted">📱 <b>Modo local:</b> os dados ficam só neste aparelho. Para que o casal use a mesma conta em celulares diferentes, configure a nuvem seguindo o README (arquivo <code>js/config.js</code>).</p>
+          </div>
+          <div id="account-cloud" class="hidden">
+            <p>☁️ Conectado como <b id="acc-email"></b></p>
+            <div class="invite">
+              <span class="muted small">Código de convite do casal</span>
+              <div class="invite-row"><strong id="acc-code" class="code"></strong><button class="btn small" id="copy-code">Copiar</button></div>
+            </div>
+            <p class="muted small" id="acc-members"></p>
+            <div class="stack-row">
+              <button class="btn" id="acc-signout">Sair da conta</button>
+              <button class="btn danger ghost" id="acc-leave">Sair do espaço</button>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <h2>Seus dados</h2>
-          <p class="muted">Os dados ficam salvos apenas neste navegador. Faça backups periódicos e use a importação para levar os dados a outro aparelho.</p>
+          <p class="muted" id="data-hint">Os dados ficam salvos apenas neste navegador. Faça backups periódicos e use a importação para levar os dados a outro aparelho.</p>
           <div class="stack">
             <button class="btn" id="export-json">⬇️ Exportar backup (JSON)</button>
             <label class="btn file-btn">⬆️ Importar backup (JSON)<input type="file" id="import-json" accept="application/json,.json" hidden></label>
@@ -153,6 +213,7 @@
             <button class="btn" id="load-demo">✨ Carregar dados de exemplo</button>
             <button class="btn danger" id="reset-all">🗑️ Apagar todos os dados</button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -226,6 +287,9 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="js/vendor/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/cloud.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

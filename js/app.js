@@ -66,9 +66,34 @@
     };
   }
 
-  function save() {
+  function saveLocal() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { toast('Não foi possível salvar neste navegador.'); }
+  }
+
+  // ---------------------------------------------------------------- Nuvem (opcional)
+  let cloud = null;      // cliente da nuvem (null = modo local)
+  let hid = null;        // id do espaço do casal
+  let account = null;    // { userId, email, inviteCode, members }
+  let pendingWrites = 0;
+  let recovering = false; // usuário abriu o link de "esqueci minha senha"
+
+  /** Salva uma alteração: no aparelho (modo local) ou na nuvem (modo casal). */
+  function persist(cloudOp) {
+    if (!cloud) { saveLocal(); return; }
+    if (!hid) return;
+    const h = hid;
+    pendingWrites++;
+    setSync('saving');
+    Promise.resolve()
+      .then(() => cloudOp(cloud, h))
+      .then(() => setSync(navigator.onLine === false ? 'offline' : 'ok'))
+      .catch((err) => {
+        setSync('error');
+        toast('Não foi possível sincronizar: ' + err.message);
+        scheduleReload(1500);
+      })
+      .finally(() => { pendingWrites--; });
   }
 
   // ---------------------------------------------------------------- Utils
@@ -387,6 +412,24 @@
         <span><b>${esc(c.name)}</b><small>${label}${c.budget ? ' · limite ' + money(c.budget) : ''}</small></span>
       </li>`).join('');
     $('#category-list').innerHTML = group('fixo', 'Custo fixo') + group('variavel', 'Gasto variável') + group('receita', 'Receita');
+    renderAccount();
+  }
+
+  function renderAccount() {
+    const on = !!(cloud && account && hid);
+    $('#account-local').classList.toggle('hidden', on);
+    $('#account-cloud').classList.toggle('hidden', !on);
+    $('#sync-status').classList.toggle('hidden', !on);
+    $('#data-hint').textContent = on
+      ? 'Os dados ficam na nuvem e sincronizam automaticamente entre vocês dois. Ainda assim, exporte um backup de vez em quando.'
+      : 'Os dados ficam salvos apenas neste navegador. Faça backups periódicos e use a importação para levar os dados a outro aparelho.';
+    if (!on) return;
+    $('#acc-email').textContent = account.email || '';
+    $('#acc-code').textContent = account.inviteCode || '';
+    const others = account.members.filter((m) => !m.me);
+    $('#acc-members').textContent = others.length
+      ? `Vocês dois estão conectados (${others.map((m) => m.email).join(', ')}). Tudo o que um lança aparece para o outro.`
+      : 'Aguardando seu par: peça para criar uma conta e entrar com o código acima.';
   }
 
   function updateSplitUI() {
@@ -528,7 +571,8 @@
       tx.createdAt = Date.now();
       state.transactions.push(tx);
     }
-    save();
+    const savedTx = tx;
+    persist((c, h) => c.upsertTxs(h, [savedTx]));
     txDialog.close();
     // leva a visualização para o mês do lançamento
     const [y, m] = tx.date.split('-').map(Number);
@@ -539,8 +583,10 @@
 
   $('#tx-delete').addEventListener('click', () => {
     if (!editingTxId || !confirm('Excluir este lançamento?')) return;
-    state.transactions = state.transactions.filter((t) => t.id !== editingTxId);
-    save(); txDialog.close(); render(); toast('Lançamento excluído.');
+    const removedId = editingTxId;
+    state.transactions = state.transactions.filter((t) => t.id !== removedId);
+    persist((c, h) => c.deleteTx(h, removedId));
+    txDialog.close(); render(); toast('Lançamento excluído.');
   });
 
   // ---------------------------------------------------------------- Category dialog
@@ -570,9 +616,11 @@
       nature: catForm.nature.value,
       budget: catForm.nature.value === 'receita' ? 0 : round2(+catForm.budget.value || 0),
     };
-    if (editingCatId) Object.assign(cat(editingCatId), data);
-    else state.categories.push({ id: uid(), ...data });
-    save(); catDialog.close(); render(); toast('Categoria salva.');
+    let saved;
+    if (editingCatId) saved = Object.assign(cat(editingCatId), data);
+    else state.categories.push((saved = { id: uid(), ...data }));
+    persist((cl, h) => cl.upsertCats(h, [saved], state.categories));
+    catDialog.close(); render(); toast('Categoria salva.');
   });
 
   $('#cat-delete').addEventListener('click', () => {
@@ -582,7 +630,8 @@
     if (used) { toast(`Categoria em uso por ${used} lançamento(s). Altere-os antes de excluir.`); return; }
     if (!confirm(`Excluir a categoria “${c.name}”?`)) return;
     state.categories = state.categories.filter((x) => x.id !== c.id);
-    save(); catDialog.close(); render(); toast('Categoria excluída.');
+    persist((cl, h) => cl.deleteCat(h, c.id));
+    catDialog.close(); render(); toast('Categoria excluída.');
   });
 
   $$('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
@@ -622,8 +671,10 @@
   $('#budget-list').addEventListener('change', (e) => {
     const id = e.target.dataset.budget;
     if (!id) return;
-    cat(id).budget = Math.max(0, round2(+e.target.value || 0));
-    save(); render(); toast('Orçamento atualizado.');
+    const c = cat(id);
+    c.budget = Math.max(0, round2(+e.target.value || 0));
+    persist((cl, h) => cl.upsertCats(h, [c], state.categories));
+    render(); toast('Orçamento atualizado.');
   });
 
   $('#couple-form').addEventListener('input', updateSplitUI);
@@ -637,7 +688,9 @@
       inc2: +$('#s-inc2').value || 0,
       pct1: +$('#s-pct1').value,
     });
-    save(); document.activeElement.blur(); render(); toast('Configurações salvas.');
+    const settings = { ...state.settings };
+    persist((c, h) => c.saveSettings(h, settings));
+    document.activeElement.blur(); render(); toast('Configurações salvas.');
   });
 
   $('#add-category').addEventListener('click', () => openCat(null));
@@ -649,11 +702,13 @@
     const toCopy = txOfMonth(prev.y, prev.m).filter((t) => t.type === 'despesa' && natureOf(t) === 'fixo' &&
       !current.some((c) => c.categoryId === t.categoryId && c.description === t.description));
     if (!toCopy.length) { toast('Nenhum custo fixo novo para copiar do mês anterior.'); return; }
-    toCopy.forEach((t) => {
+    const copies = toCopy.map((t, i) => {
       const day = Math.min(+t.date.slice(8, 10), lastDay);
-      state.transactions.push({ ...t, id: uid(), createdAt: Date.now(), date: `${ymKey(cursor.y, cursor.m)}-${pad(day)}` });
+      return { ...t, id: uid(), createdAt: Date.now() + i, date: `${ymKey(cursor.y, cursor.m)}-${pad(day)}` };
     });
-    save(); render(); toast(`${toCopy.length} custo(s) fixo(s) copiado(s). Ajuste os valores se necessário.`);
+    state.transactions.push(...copies);
+    persist((c, h) => c.upsertTxs(h, copies));
+    render(); toast(`${toCopy.length} custo(s) fixo(s) copiado(s). Ajuste os valores se necessário.`);
   });
 
   // ---------------------------------------------------------------- Import / export
@@ -675,7 +730,7 @@
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.transactions)) throw new Error('formato');
       if (!confirm('Substituir os dados atuais pelo backup importado?')) return;
-      state = normalize(data); save(); render(); toast('Backup importado com sucesso!');
+      state = normalize(data); persistAll(); render(); toast('Backup importado com sucesso!');
     } catch (err) { toast('Arquivo inválido. Use um backup exportado pelo Nosso Bolso.'); }
   });
 
@@ -693,16 +748,23 @@
   });
 
   $('#reset-all').addEventListener('click', () => {
-    if (!confirm('Apagar TODOS os lançamentos, categorias e configurações? Esta ação não pode ser desfeita.')) return;
-    state = defaultState(); save(); render(); toast('Dados apagados.');
+    const msg = cloud ? 'Apagar TODOS os lançamentos, categorias e configurações do casal (para vocês dois)? Esta ação não pode ser desfeita.'
+      : 'Apagar TODOS os lançamentos, categorias e configurações? Esta ação não pode ser desfeita.';
+    if (!confirm(msg)) return;
+    state = defaultState(); persistAll(); render(); toast('Dados apagados.');
   });
 
   $('#load-demo').addEventListener('click', () => {
     if (state.transactions.length && !confirm('Substituir os dados atuais por dados de exemplo?')) return;
-    state = demoState(); save();
+    state = demoState(); persistAll();
     cursor = { y: today.getFullYear(), m: today.getMonth() };
     render(); goto('dashboard'); toast('Dados de exemplo carregados.');
   });
+
+  function persistAll() {
+    const snapshot = state;
+    persist((c) => c.replaceAll(snapshot));
+  }
 
   function demoState() {
     const s = defaultState();
@@ -755,6 +817,198 @@
     return s;
   }
 
+  // ---------------------------------------------------------------- Login e espaço do casal
+  const gates = ['#auth-screen', '#household-screen', '#loading'];
+  function showGate(id) { gates.forEach((g) => $(g).classList.toggle('hidden', g !== id)); }
+
+  function setSync(status) {
+    const el = $('#sync-status');
+    el.dataset.status = status;
+    el.textContent = { ok: '☁️ Sincronizado', saving: '⏳ Salvando…', error: '⚠️ Erro ao sincronizar', offline: '📴 Sem internet' }[status] || '';
+  }
+  window.addEventListener('offline', () => cloud && setSync('offline'));
+  window.addEventListener('online', () => { if (cloud && hid) { setSync('ok'); scheduleReload(100); } });
+
+  let reloadTimer = null;
+  function scheduleReload(delay = 400) {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => {
+      if (pendingWrites > 0) return scheduleReload(400); // espera as gravações terminarem
+      reloadCloud().catch((err) => { setSync('error'); console.error(err); });
+    }, delay);
+  }
+
+  async function reloadCloud() {
+    if (!cloud || !account) return;
+    const data = await cloud.load();
+    if (!data) { leaveCloudData(); showHousehold(); return; }
+    hid = data.householdId;
+    account.inviteCode = data.inviteCode;
+    account.members = data.members;
+    state = normalize({ settings: data.settings, categories: data.categories, transactions: data.transactions });
+    setSync(navigator.onLine === false ? 'offline' : 'ok');
+    render();
+  }
+
+  function leaveCloudData() {
+    cloud && cloud.unsubscribe();
+    hid = null;
+    state = defaultState();
+    render();
+  }
+
+  async function enter(session) {
+    if (account && account.userId === session.user.id && hid) return;
+    account = { userId: session.user.id, email: session.user.email, inviteCode: '', members: [] };
+    showGate('#loading');
+    try {
+      const data = await cloud.load();
+      if (!data) { showHousehold(); return; }
+      await reloadCloud();
+      cloud.subscribe(() => scheduleReload());
+      if (recovering) showAuth('recovery', 'Digite sua nova senha.', true);
+      else showGate(null);
+    } catch (err) {
+      account = null;
+      showAuth('signin', 'Não foi possível carregar os dados: ' + err.message);
+    }
+  }
+
+  // ----- Tela de login
+  const authForm = $('#auth-form');
+  let authMode = 'signin';
+  function showAuth(mode = 'signin', msg = '', ok = false) {
+    authMode = mode;
+    const r = $(`input[name="authMode"][value="${mode}"]`);
+    if (r) r.checked = true;
+    $('#auth-tabs').classList.toggle('hidden', mode === 'forgot' || mode === 'recovery');
+    $('.for-email', authForm).classList.toggle('hidden', mode === 'recovery');
+    $('.for-password', authForm).classList.toggle('hidden', mode === 'forgot');
+    authForm.email.required = mode !== 'recovery';
+    authForm.password.required = mode !== 'forgot';
+    authForm.password.autocomplete = mode === 'signin' ? 'current-password' : 'new-password';
+    $('.for-password', authForm).firstChild.textContent = mode === 'recovery' ? 'Nova senha' : 'Senha';
+    $('#auth-submit').textContent = { signin: 'Entrar', signup: 'Criar conta', forgot: 'Enviar link de recuperação', recovery: 'Salvar nova senha' }[mode];
+    $('#forgot-btn').textContent = mode === 'forgot' ? '← Voltar para o login' : 'Esqueci minha senha';
+    $('#forgot-btn').classList.toggle('hidden', mode === 'recovery');
+    authMsg(msg, ok);
+    showGate('#auth-screen');
+  }
+  const authMsg = (msg, ok) => { const el = $('#auth-msg'); el.textContent = msg || ''; el.classList.toggle('ok', !!ok); };
+
+  $('#auth-tabs').addEventListener('change', (e) => showAuth(e.target.value));
+  $('#forgot-btn').addEventListener('click', () => showAuth(authMode === 'forgot' ? 'signin' : 'forgot'));
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = authForm.email.value.trim(), password = authForm.password.value;
+    const btn = $('#auth-submit');
+    btn.disabled = true; authMsg('Aguarde…', true);
+    try {
+      if (authMode === 'signin') {
+        const { session } = await cloud.signIn(email, password);
+        authForm.password.value = '';
+        await enter(session);
+      } else if (authMode === 'signup') {
+        const { session } = await cloud.signUp(email, password);
+        authForm.password.value = '';
+        if (session) await enter(session);
+        else showAuth('signin', `Quase lá! Enviamos um link de confirmação para ${email}. Confirme e depois entre aqui.`, true);
+      } else if (authMode === 'forgot') {
+        await cloud.resetPassword(email);
+        showAuth('signin', 'Se o e-mail tiver conta, você receberá um link para criar uma nova senha.', true);
+      } else if (authMode === 'recovery') {
+        await cloud.updatePassword(password);
+        recovering = false;
+        authForm.password.value = '';
+        toast('Senha alterada com sucesso!');
+        const session = await cloud.session();
+        if (session) { account = null; await enter(session); }
+        else showAuth('signin', 'Senha alterada. Entre com a nova senha.', true);
+      }
+    } catch (err) {
+      authMsg(err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ----- Tela do espaço do casal
+  function showHousehold(msg = '') {
+    $('#hh-email').textContent = account ? account.email : '';
+    $('#hh-msg').textContent = msg;
+    showGate('#household-screen');
+  }
+
+  $('#hh-create').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const local = load();
+    let initial = defaultState();
+    if (local.transactions.length && confirm(`Encontramos ${local.transactions.length} lançamento(s) salvos neste aparelho. Deseja levá-los para o espaço do casal?`)) {
+      initial = local;
+    }
+    btn.disabled = true;
+    try {
+      await cloud.createHousehold(initial.settings);
+      await cloud.replaceAll(initial);
+      hid = null;
+      await enter({ user: { id: account.userId, email: account.email } });
+      goto('settings');
+      toast('Espaço criado! Compartilhe o código de convite com seu par.');
+    } catch (err) { $('#hh-msg').textContent = err.message; }
+    finally { btn.disabled = false; }
+  });
+
+  $('#hh-join-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget, code = form.code.value.trim().toUpperCase();
+    try {
+      await cloud.joinHousehold(code);
+      form.reset();
+      hid = null;
+      await enter({ user: { id: account.userId, email: account.email } });
+      toast('Pronto! Agora vocês compartilham os mesmos dados.');
+    } catch (err) { $('#hh-msg').textContent = err.message; }
+  });
+
+  async function signOut() {
+    try { await cloud.signOut(); } catch (err) { /* sai localmente mesmo sem conexão */ }
+    account = null; leaveCloudData(); showAuth('signin');
+  }
+  $('#hh-signout').addEventListener('click', signOut);
+  $('#acc-signout').addEventListener('click', signOut);
+
+  $('#acc-leave').addEventListener('click', async () => {
+    const alone = account.members.length < 2;
+    const msg = alone
+      ? 'Sair do espaço? Como você é a única pessoa nele, TODOS os dados serão apagados.'
+      : 'Sair do espaço do casal? Os dados continuam disponíveis para seu par.';
+    if (!confirm(msg)) return;
+    try { await cloud.leaveHousehold(); leaveCloudData(); showHousehold(); }
+    catch (err) { toast(err.message); }
+  });
+
+  $('#copy-code').addEventListener('click', async () => {
+    const code = account && account.inviteCode;
+    try { await navigator.clipboard.writeText(code); toast('Código copiado!'); }
+    catch (e) { toast(`Código de convite: ${code}`); }
+  });
+
   // ---------------------------------------------------------------- Init
-  render();
+  const CONFIG = window.NOSSO_BOLSO_CONFIG || {};
+  if (window.NBCloud && window.NBCloud.isConfigured(CONFIG)) {
+    cloud = window.NBCloud.create(CONFIG);
+    state = defaultState();
+    render();
+    showGate('#loading');
+    cloud.onAuth((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') { recovering = true; showAuth('recovery', 'Digite sua nova senha.', true); }
+      else if (event === 'SIGNED_OUT' && account) { account = null; leaveCloudData(); showAuth('signin'); }
+    });
+    cloud.session()
+      .then((session) => (session ? enter(session) : showAuth('signin')))
+      .catch((err) => showAuth('signin', err.message));
+  } else {
+    render();
+  }
 })();
